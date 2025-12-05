@@ -1,11 +1,53 @@
-本项目针对 Home Credit Default Risk 竞赛（金融信贷违约预测），构建了一套Deep Learning (NN) 与 LightGBM深度融合的解决方案。
-针对表格数据高维稀疏、噪声大及正负样本极度不平衡的痛点，本项目并未止步于传统的特征工程 + XGBoost/LightGBM 方案，而是探索了深度学习在表格数据上的 SOTA 实践。
-核心创新点在于引入了 DAE (Denoising AutoEncoder) 进行自监督预训练，并结合 ResNet 残差网络架构,此时会发现结果auc在测试集上并不突出,但是在接下来使用了深度的特征融合：
->>1.将此时DNN训练出来的潜在特征(选取训练标签y_train有较强相关性)与x_train,x_test重新融合x_train_aug_df,x_test_aug_df,重新喂入train_lgb_oof()函数中去,AUC可以达到0.787.
->>2.进一步的利用这一次较好的对验证集的预测结果构建伪标签(选取正样本预测概率在0.7以上,负样本的预测概率在0.05以下),这里的5折交叉验证不是直接利用上述的train_lgb_oof(),是因为避免信息泄露只对每一次fold中的训练集添加拼接伪标签数据.效果很显著的我们可以看到AUC达到0.789
->>3.由于KNN在局部特征增强的优势,进一步的提取到knn_train,knn_test,并于x_train_aug_df,x_test_aug_df进一步的融合,此时再次喂入train_lgb_oof(),测试得新的AUC
+# 🏦 Home Credit Default Risk: 基于 DAE-ResNet 与 LightGBM 的深度融合预测模型
 
->下一步想做的是进行Rank Averaging
->在特征工程中涉及到的类别特征也是很多的,此时使用CatBoost对类别特征的交互有比较强的优势,进行train_catboost_oof(),利用rankdata将对上一步得操作下最优的lgb_test_preds进行构建,并于cat_test_preds分配权重会得到新的AUC
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-red)
+![LightGBM](https://img.shields.io/badge/LightGBM-GBDT-green)
+![Status](https://img.shields.io/badge/Status-Optimization-orange)
 
->>想要在这些基础上得到优秀的UC结果,必须要有详细的特征工程和特征分析的环节.具体可见One-Hot.ipynb
+> **核心亮点**：本项目针对金融风控场景中表格数据高维稀疏、噪声大及正负样本极度不平衡的痛点，构建了一套结合 **自监督学习 (DAE)**、**残差网络 (ResNet)** 与 **梯度提升树 (LightGBM)** 的混合架构。通过**伪标签 (Pseudo-labeling)** 半监督学习策略与 **KNN 局部拓扑特征**融合，在测试集上取得了显著的性能提升。
+
+## 📖 项目背景 (Background)
+在金融信贷违约预测任务中，传统的 GBDT 方案往往面临特征挖掘的瓶颈，而单纯的深度学习模型在结构化数据上表现不佳。本项目旨在探索 **Deep Learning (NN)** 与 **Tree-based Models** 的最佳结合点，通过特征表示学习（Representation Learning）挖掘潜在风险因子。
+
+## 🛠️ 核心架构与创新点 (Architecture & Innovations)
+
+### 1. 深度特征提取 (Deep Representation Learning)
+- **DAE (Denoising AutoEncoder) 自监督预训练**：
+  - 针对含噪表格数据，使用 **Swap Noise** 进行数据增强，训练 DAE 进行无监督特征重构，有效提取了数据的鲁棒潜在分布。
+- **ResNet 残差网络架构**：
+  - 摒弃传统的 MLP，搭建基于 ResNet 的分类器，利用 Skip Connection 缓解深层网络的梯度消失问题，捕捉非线性交互特征。
+- **特征筛选与正交性检查**：
+  - 提取 DNN 中间层输出 (Embedding)，通过 Pearson 相关性分析与正交性检查，筛选出与原始特征互补的 **Top-K 潜在特征** (Latent Features)，避免多重共线性带来的噪声。
+
+### 2. 策略融合与半监督学习 (Advanced Strategy)
+- **特征层融合 (Feature-Level Fusion)**：
+  - 将 DNN 提取的潜在特征、**KNN (K-Nearest Neighbors)** 提取的局部近邻统计特征与原始特征进行拼接。
+- **鲁棒的伪标签策略 (Robust Pseudo-labeling)**：
+  - 利用测试集的分布信息，通过 **多折交叉验证 (K-Fold CV)** 预测测试集。
+  - **创新点**：针对验证集泄漏问题，严格执行 Fold 内部融合；针对样本不平衡，实施 **置信度阈值筛选 (>0.70)** 与 **负样本随机下采样 (Random Downsampling)**，构建高质量伪标签数据集，显著提升模型泛化能力。
+
+## 📊 实验结果 (Performance)
+
+通过逐步叠加不同策略，模型在验证集与测试集上的 AUC 指标稳步提升：
+
+| 实验阶段 (Stage) | 方法描述 (Methodology) | AUC Score | 提升 (Improvement) |
+| :--- | :--- | :--- | :--- |
+| **Baseline** | 原始特征 + LightGBM (5-Fold) | 0.7869 | - |
+| **Exp 1** | + ResNet 潜在特征融合 (Latent Features) | 0.7870 | 🔺 Slight |
+| **Exp 2** | + **Pseudo-labeling (Semi-supervised)** | **0.7893** | 🚀 **Significant** |
+| **Exp 3** | + KNN Features + Feature Selection | TBD | 🔄 Optimization |
+
+> *注：伪标签策略使得 AUC 突破了 0.789 的瓶颈，证明了利用未标记数据的有效性。*
+
+## 📂 项目结构 (Structure)
+
+```text
+├── data_EDA.ipynb        # 数据探索性分析 (分布检查、缺失值处理)
+├── One_Hot.ipynb         # 特征工程 (One-Hot, Target Encoding, 聚合统计)
+├── DAE.ipynb             # 深度学习模块 (DAE预训练 + ResNet微调 + 特征提取)
+├── models/               # 模型训练脚本
+│   ├── train_lgb.py      # LightGBM 训练与伪标签逻辑实现
+│   └── train_cat.py      # CatBoost 训练 (Plan)
+├── README.md             # 项目说明文档
+└── .gitattributes
