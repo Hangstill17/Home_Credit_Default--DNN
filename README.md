@@ -35,13 +35,13 @@
 | :--- | :--- | :--- | :--- |
 | **Baseline** | 原始特征 + LightGBM (5-Fold) | 0.7869 | - |
 | **Exp 1** | + ResNet 潜在特征融合 (Latent Features) | 0.7870 | 🔺 Slight |
-| **Exp 2** | + **Pseudo-labeling (Semi-supervised)** | **0.7893** | 🚀 **Significant** |
+| **Exp 2** | + **Pseudo-labeling (Semi-supervised)** | **0.7893** | **Significant** |
 | **Exp 3** | + KNN Features + Feature Selection | 0.7886 | 🔄 Optimization |
-| **Exp 4** | Exp 2 + CatBoost (5-Fold) 进行逻辑回归 | **0.7921** | Super Model| 
+| **Exp 4** | Exp 2 + CatBoost (5-Fold) 进行逻辑回归 | **0.7921** | 🚀Super Model| 
 
 > *注 1：伪标签策略使得 AUC 突破了 0.789 的瓶颈，证明了利用未标记数据的有效性。*
-> * 注 2 ：使用KNN并未让结果再一次的提高, 说明此时提取的KNN特征和Exp 2中的特征有很大的相关性,且增大了模型的复杂度。 *
-> * 注 3： 使用CatBoost来增强类别特征的交互性,但是训练速度很慢,需要耐心的去调整参数. *
+> *注 2 ：使用KNN并未让结果再一次的提高, 说明此时提取的KNN特征和Exp 2中的特征有很大的相关性,且增大了模型的复杂度。*
+> *注 3： 使用CatBoost来增强类别特征的交互性,但是训练速度很慢,需要耐心的去调整参数.*
 
 ## 📂 项目结构 (Structure)
 
